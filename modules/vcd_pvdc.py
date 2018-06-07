@@ -20,10 +20,9 @@ version_added: "2.4"
 description:
     - This module is to create, read, update, delete PVDC in vCloud Director.
     - Task performed:
-        - Create catalog
-        - Read Catalog
-        - Update name, description and shared state of catalog
-        - Delete catalog
+        - Create provider vdc
+        - Reload provider vdc
+        - Set provider vdc metadata
 
 options:
     user:
@@ -50,34 +49,21 @@ options:
         description:
             - whether to use secure connection to vCloud Director host
         required: false
-    name:
+    pvdc_name:
         description:
             - catalog name
         required: true
-    new_name:
-        description:
-            - new catalog name. Used while updating catalog name.
-        required: false
-    description:
-        description:
-            - description of the catalog
-        required: false
-    shared:
-        description:
-            - shared state of catalog(true/false)
-        required: false
     state:
         description:
-            - state of catalog ('present'/'absent').
+            - state of pvdc ('present'/'absent').
             - One from state or operation has to be provided.
         required: false
     operation:
         description:
-            - operation which should be performed over catalog.
+            - operation which should be performed over pvdc.
             - various operations are:
-                - updatenameanddescription : update catalog_name and catalog_description
-                - sharecatalogstate : share or unshare catalog
-                - readcatalog : read catalog metadata e.g catalog name, description, shared state of catalog
+                - setmetadata : set provider vdc metadata
+                - reload : reload provider vdc
             - One from state or operation has to be provided.
         required: false
 
@@ -100,35 +86,33 @@ result: success/failure message relates to pvdc operation/operations
 
 from ansible.module_utils.vcd import VcdAnsibleModule
 from pyvcloud.vcd.platform import Platform 
+from pyvcloud.vcd.pvdc import PVDC 
 
 
 VCD_PVDC_STATES = ['present', 'absent']
-VCD_PVDC_OPERATIONS = ['updatenameanddescription',
-                          'sharecatalogstate', 'readcatalog']
+VCD_PVDC_OPERATIONS = ['setmetadata', 'reload']
 
 
 def vcd_pvdc_argument_spec():
     return dict(
-        name=dict(type='str', required=True),
-        new_name=dict(type='str', required=False, default=''),
-        description=dict(type='str', required=False, default=''),
+        pvdc_name=dict(type='str', required=True),
         shared=dict(type='bool', required=False, default=False),
         state=dict(choices=VCD_PVDC_STATES, required=False),
         operation=dict(choices=VCD_PVDC_OPERATIONS, required=False)
     )
 
-class PVDC(object):
+class VcdPVDC(object):
 
     def __init__(self, module):
         self.module = module
 
     def get_vdc_object(self):
-        pass
+        pvdc = PVDC()
+        return pvdc
 
     def create(self):
         client = self.module.client
         params = self.module.params
-
         vim_server_name = params.get('vim_server_name')
         resource_pool_names = params.get('resource_pool_names')
         storage_profiles = params.get('storage_profiles')
@@ -138,24 +122,63 @@ class PVDC(object):
         highest_hw_vers = params.get('highest_hw_vers')
         vxlan_network_pool = params.get('vxlan_network_pool')
         nsxt_manager_name = params.get('nsxt_manager_name')
+        response = dict()
 
         platform = Platform(client)
-        platform.create_provider_vdc(self,
-                            vim_server_name,
-                            resource_pool_names,
-                            storage_profiles,
-                            pvdc_name,
-                            is_enabled,
-                            description,
-                            highest_hw_vers,
-                            vxlan_network_pool,
-                            nsxt_manager_name)
+        platform.create_provider_vdc(vim_server_name = vim_server_name,
+                            resource_pool_names = resource_pool_names,
+                            storage_profiles = storage_profiles,
+                            pvdc_name = pvdc_name,
+                            is_enabled = is_enabled,
+                            description = description,
+                            highest_hw_vers = highest_hw_vers,
+                            vxlan_network_pool = vxlan_network_pool,
+                            nsxt_manager_name = nsxt_manager_name
+                            )
+        response['msg'] = 'Pvdc {} has been created.'.format(pvdc_name)
+        response['changed'] = True
 
-    def read(self):
-        pass
+        return response
+        
     
-    def update(self):
-        pass
+    def reload(self):
+        pvdc_name = self.params.get('pvdc_name')
+        response = dict()
+
+        pvdc = self.get_vdc_object()
+        pvdc.reload()
+        response['msg'] = 'Pvdc {} has been reloaded.'.format(pvdc_name)
+        response['changed'] = True
+
+        return response
+
+    def get_metadata(self):
+        pvdc = self.get_vdc_object()
+        metadata = pvdc.get_metadata()
+        return metadata
+
+    def set_metadata(self):
+        params = self.params
+        pvdc_name = params.get('pvdc_name')
+        domain = params.get('domain')
+        visibility = params.get('visibility')
+        key = params.get('key')
+        value = params.get('value')
+        metadata_type = params.get('metadata_type')
+        response = dict()
+
+        pvdc = self.get_vdc_object()
+        pvdc.set_metadata(
+            domain = domain,
+            visibility = visibility,
+            key = key,
+            value = value,
+            metadata_type = metadata_type
+        )
+        response['msg'] = 'Pvdc {} metadata has been set.'.format(pvdc_name)
+        response['changed'] = True
+
+        return response
     
     def delete(self):
         pass
@@ -173,14 +196,12 @@ def manage_states(pvdc):
 def manage_operations(pvdc):
     operation = pvdc.module.params.get('operation')
 
-    if (operation == "updatenameanddescription"):
-        return pvdc.update_name_and_description()
+    if (operation == "setmetadata"):
+        return pvdc.set_metadata()
 
-    if operation == "sharecatalogstate":
-        return pvdc.share()
+    if operation == "reload":
+        return pvdc.reload()
 
-    if operation == "readcatalog":
-        return pvdc.read()
 
 
 def main():
@@ -194,7 +215,7 @@ def main():
     module = VcdAnsibleModule(argument_spec=argument_spec,
                               supports_check_mode=True)
     try:
-        pvdc = PVDC(module)
+        pvdc = VcdPVDC(module)
         if module.params.get('state'):
             response = manage_states(pvdc)
         elif module.params.get('operation'):

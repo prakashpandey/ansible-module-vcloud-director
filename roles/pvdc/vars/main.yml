@@ -3,3 +3,13 @@
 
 ---
 # vars file for roles/pvdc
+
+pvdc_name : "test_pvdc_100"
+vim_server_name : "test_vim_server_name"
+resource_pool_names : "test_resource_pool_names" 
+storage_profiles : "test_storage_profiles"
+is_enabled : "test_is_enabled"
+description : "test_description"
+highest_hw_vers : "test_highest_hw_vers"
+vxlan_network_pool : "test_vxlan_network_pool"
+nsxt_manager_name : "test_nsxt_manager_name"

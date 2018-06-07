@@ -3,3 +3,62 @@
 
 ---
 # tasks file for roles/pvdc
+
+############################################ create-pvdc ##############################################################
+- name: create pvdc
+  vcd_pvdc:
+    pvdc_name : "{{ pvdc_name }}"
+    vim_server_name : "{{ vim_server_name }}"
+    resource_pool_names : "{{ resource_pool_names }}" 
+    storage_profiles : "{{ storage_profiles }}"
+    is_enabled : "{{ is_enabled }}"
+    description : "{{ description }}"
+    highest_hw_vers : "{{ highest_hw_vers }}"
+    vxlan_network_pool : "{{ vxlan_network_pool }}"
+    nsxt_manager_name : "{{ nsxt_manager_name }}"
+    state: "present"
+  register: output
+
+- name: create pvdc output
+  debug:
+    msg: '{{ output }}'  
+
+- assert:
+    that:
+      - "'Pvdc {{ pvdc_name }} has been created.' in output.msg"
+
+############################################ set-metadata-pvdc ##############################################################
+- name: set-metadata pvdc
+  vcd_pvdc:
+    pvdc_name : "{{ pvdc_name }}"
+    domain : "{{ domain }}"
+    visibility : "{{ visibility }}"
+    key : "{{ key }}"
+    value : "{{ value }}"
+    metadata_type : "{{ metadata_type }}"
+    operations: "setmetadata"
+  register: output
+
+- name: set-metadata pvdc output
+  debug:
+    msg: '{{ output }}'  
+
+- assert:
+    that:
+      - "'Pvdc {{ pvdc_name }} metadata has been set.' in output.msg"
+
+
+############################################ reload-pvdc ##############################################################
+- name: reload pvdc
+  vcd_pvdc:
+    pvdc_name : "{{ pvdc_name }}"
+    operations: "reload"
+  register: output
+
+- name: reload pvdc output
+  debug:
+    msg: '{{ output }}'  
+
+- assert:
+    that:
+      - "'Pvdc {{ pvdc_name }} has been reloaded.' in output.msg"
